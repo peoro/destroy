@@ -1,0 +1,25 @@
+{
+	"name": "@peoro/destroy",
+	"version": "1.0.0",
+	"description": "API to destroy objects, forcing them to free the event loop",
+	"main": "src/index.js",
+	"scripts": {
+		"pretest": "eslint src test",
+		"test": "nyc mocha test/index.js",
+		"coverage": "nyc report --reporter=lcov"
+	},
+	"dependencies": {},
+	"devDependencies": {
+		"@peoro/eslint-config": "^1.0.1",
+		"eslint": "^5.10.0",
+		"mocha": "^5.2.0",
+		"nyc": "^13.1.0",
+		"sinon": "^7.2.2"
+	},
+	"author": "peoro",
+	"license": "MIT",
+	"keywords": [],
+	"homepage": "https://github.com/peoro/destroy#readme",
+	"bugs": "https://github.com/peoro/destroy/issues",
+	"repository": "github:peoro/destroy"
+}

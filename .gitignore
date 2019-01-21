@@ -1,0 +1,8 @@
+
+# npm
+/node_modules/
+
+# test & coverage files
+/coverage/
+.nyc_output
+*.lcov
