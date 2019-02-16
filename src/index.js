@@ -44,8 +44,17 @@ function destroy( obj ) {
 }
 
 function chainDestroy( obj, chainedObj ) {
+	assert( obj[destructionChain], `${obj} used as a Destroyable, but it's not` );
+	assert( ! obj[destructionChain].includes( chainedObj ), `Trying to destroy ${chainedObj} after ${obj} twice` );
 	obj[destructionChain].push( chainedObj );
 	return obj;
+}
+function unchainDestroy( obj, chainedObj ) {
+	// TODO: use a faster algorithm
+	const index = obj[destructionChain].indexOf( chainedObj );
+	if( index !== -1 ) {
+		obj[destructionChain].splice( index, 1 );
+	}
 }
 function chainDestroyArr( obj, chainedObjs ) {
 	return chainedObjs.reduce( chainDestroy, obj );
@@ -58,6 +67,39 @@ function onDestroy( obj, fn ) {
 	chainDestroy( obj, new LightDestroyable(fn) );
 	return obj;
 }
+
+const manualClean = {
+	chainDestroy( obj, chainedObj ) {
+		chainDestroy( obj, chainedObj );
+		return new LightDestroyable( ()=>unchainDestroy(obj, chainedObj) );
+	},
+	chainDestroyArr( obj, chainedObjs ) {
+		const handle = new Destroyable();
+		chainedObjs.forEach( (obj)=>chainDestroy(handle, obj) );
+
+		return manualClean.chainDestroy( obj, handle );
+	},
+	destroyWith( chainedObj, obj ) {
+		return manualClean.chainDestroy( obj, chainedObj );
+	},
+	onDestroy( obj, fn ) {
+		return manualClean.chainDestroy( obj, new LightDestroyable(fn) );
+	},
+};
+
+const clean = {
+	chainDestroy( obj, chainedObj ) {
+		onDestroy( chainedObj, ()=>unchainDestroy(obj, chainedObj) );
+		return chainDestroy( obj, chainedObj );
+	},
+	chainDestroyArr( obj, chainedObjs ) {
+		return chainedObjs.reduce( clean.chainDestroy, obj );
+	},
+	destroyWith( chainedObj, obj ) {
+		clean.chainDestroy( obj, chainedObj );
+		return chainedObj;
+	},
+};
 
 function use( destroyable, fn ) {
 	try {
@@ -80,8 +122,12 @@ module.exports = {
 
 	destroy,
 	chainDestroy,
+	unchainDestroy,
 	chainDestroyArr,
 	destroyWith,
 	onDestroy,
 	use,
+
+	clean,
+	manualClean,
 };
