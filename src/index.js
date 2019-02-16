@@ -44,11 +44,11 @@ function destroy( obj ) {
 }
 
 function chainDestroy( obj, chainedObj ) {
-	if( ! obj[destructionChain] ) {
-		initDestroyable( obj );
-	}
 	obj[destructionChain].push( chainedObj );
 	return obj;
+}
+function chainDestroyArr( obj, chainedObjs ) {
+	return chainedObjs.reduce( chainDestroy, obj );
 }
 function destroyWith( chainedObj, obj ) {
 	chainDestroy( obj, chainedObj );
@@ -80,6 +80,7 @@ module.exports = {
 
 	destroy,
 	chainDestroy,
+	chainDestroyArr,
 	destroyWith,
 	onDestroy,
 	use,
