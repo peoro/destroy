@@ -1,6 +1,6 @@
 {
 	"name": "@peoro/destroy",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "API to destroy objects, forcing them to free the event loop",
 	"main": "src/index.js",
 	"scripts": {

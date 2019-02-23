@@ -16,7 +16,10 @@ describe( `@peoro/destroy`, function(){
 		assert.strictEqual( obj[destructionChain], undefined );
 		initDestroyable( obj );
 		assert.deepStrictEqual( obj[destructionChain], [] );
-		assert.throws( ()=>initDestroyable(obj), /trying to re-init a destroyable/ );
+		assert.throws(
+			()=>initDestroyable(obj),
+			new Error(`trying to re-init a destroyable: [object Object]`)
+		);
 	});
 	describe( `LightDestroyable`, function(){
 		it(`new LightDestroyable()`, function(){
@@ -91,7 +94,10 @@ describe( `@peoro/destroy`, function(){
 		const lightDest = new LightDestroyable();
 		const dest = new Destroyable();
 
-		assert.throws( ()=>chainDestroy(lightDest, chainDest1) );
+		assert.throws(
+			()=>chainDestroy(lightDest, chainDest1),
+			new Error(`[object Object] used as a Destroyable, but it's not`)
+		);
 		chainDestroy( dest, chainDest1 );
 		assert.deepStrictEqual( dest[destructionChain], [chainDest1] );
 
@@ -176,15 +182,32 @@ describe( `@peoro/destroy`, function(){
 		assert( spy.calledOnce );
 
 		// throw
-		const err = new Error();
-		assert.throws( ()=>{
-			use( mkDest(`yo`), (dest)=>{
-				assert.deepEqual( dest.data, `yo` );
-				assert( spy.calledOnce );
-				throw err;
-			});
-		}, err );
+		const err = new Error(`Test`);
+		assert.throws(
+			()=>{
+				use( mkDest(`yo`), (dest)=>{
+					assert.deepEqual( dest.data, `yo` );
+					assert( spy.calledOnce );
+					throw err;
+				});
+			},
+			err
+		);
 		assert( spy.calledTwice );
+	});
+
+	it(`Error messages are formatted correctly`, function(){
+		const obj = {
+			toString(){
+				throw new Error(`Can't be stringified`);
+			}
+		};
+
+		initDestroyable( obj );
+		assert.throws(
+			()=>initDestroyable(obj),
+			new Error(`trying to re-init a destroyable: [?]`)
+		);
 	});
 
 	describe(`clean`, function(){

@@ -1,14 +1,45 @@
 
 'use strict';
 
-const assert = require('assert');
 const destructor = Symbol(`destructor`);
 const destructionChain = Symbol(`destructionChain`);
+
+function errMsg( strings, ...args ) {
+	const tokens = [];
+
+	strings.forEach( (str, i)=>{
+		tokens.push( str );
+
+		const arg = args[i];
+		if( ! arg ) {
+			tokens.push( arg );
+		} else {
+			try {
+				tokens.push( arg.toString() );
+			}
+			catch( err ) {
+				tokens.push( `[?]` );
+			}
+		}
+	});
+
+	tokens.pop();
+	return tokens.join(``);
+}
+function errFn() {
+	return ()=>errMsg(...arguments);
+}
+
+function assert( value, msgFn ) {
+	if( ! value ) {
+		throw new Error( msgFn() );
+	}
+}
 
 function noop(){}
 
 function initDestroyable( obj ) {
-	assert( ! obj[destructionChain], `trying to re-init a destroyable` );
+	assert( ! obj[destructionChain], errFn`trying to re-init a destroyable: ${obj}` );
 	Object.defineProperty( obj, destructionChain, {
 		configurable: true,
 		value: [],
@@ -44,8 +75,8 @@ function destroy( obj ) {
 }
 
 function chainDestroy( obj, chainedObj ) {
-	assert( obj[destructionChain], `${obj} used as a Destroyable, but it's not` );
-	assert( ! obj[destructionChain].includes( chainedObj ), `Trying to destroy ${chainedObj} after ${obj} twice` );
+	assert( obj[destructionChain], errFn`${obj} used as a Destroyable, but it's not` );
+	assert( ! obj[destructionChain].includes( chainedObj ), errFn`Trying to destroy ${chainedObj} after ${obj} twice` );
 	obj[destructionChain].push( chainedObj );
 	return obj;
 }
