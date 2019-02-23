@@ -4,7 +4,7 @@
 const assert = require('assert');
 const sinon = require('sinon');
 
-const {destructor, destructionChain, initDestroyable, LightDestroyable, Destroyable, destroy, chainDestroy, unchainDestroy, chainDestroyArr, destroyWith, onDestroy, use, clean, manualClean} = require('../src/index.js');
+const {destructor, destructionChain, initDestroyable, NullDestroyable, LightDestroyable, Destroyable, destroy, chainDestroy, unchainDestroy, destroyWith, onDestroy, isDestroyed, use, clean, manualClean} = require('../src/index.js');
 
 function noop1(){}
 function noop2(){}
@@ -48,7 +48,7 @@ describe( `@peoro/destroy`, function(){
 		});
 	});
 
-	it(`destroy()`, function(){
+	it(`destroy(), isDestroyed()`, function(){
 		// these should do nothing
 		destroy( null );
 		destroy( `hey` );
@@ -58,33 +58,65 @@ describe( `@peoro/destroy`, function(){
 		// `destructor` is called
 		{
 			const spy = sinon.spy();
+			let res;
+
 			const dest = new Destroyable( spy );
+			assert.strictEqual( isDestroyed(dest), false );
 
-			destroy( dest );
+			res = destroy( dest );
+			assert.strictEqual( res, true );
 			assert( spy.calledOnce );
+			assert.strictEqual( isDestroyed(dest), true );
 
-			destroy( dest );
-			assert( spy.calledTwice );
+			res = destroy( dest );
+			assert.strictEqual( res, false );
+			assert( spy.calledOnce );
+			assert.strictEqual( isDestroyed(dest), true );
 
 			assert( spy.alwaysCalledWithExactly(destroy) );
 		}
 
-		// `destructionChain` works
+		// `NullDestroyable` works too
 		{
 			const spy = sinon.spy();
-			const chainDest = new Destroyable( spy );
+			const chainDest = new LightDestroyable( spy );
+			let res;
 
 			const dest = new Destroyable();
+			assert.strictEqual( isDestroyed(dest), false );
+
 			dest[destructionChain].push( chainDest, chainDest );
 			assert( spy.notCalled );
+			assert.strictEqual( isDestroyed(dest), false );
 
-			destroy( dest );
-			assert( spy.calledTwice );
-			assert( spy.alwaysCalledWithExactly(destroy) );
+			res = destroy( dest );
+			assert.strictEqual( res, true );
+			assert( spy.calledOnce );
+			assert.strictEqual( isDestroyed(dest), true );
 
 			// `spy` is not called again
-			destroy( dest );
-			assert( spy.calledTwice );
+			res = destroy( dest );
+			assert.strictEqual( res, false );
+			assert( spy.calledOnce );
+			assert.strictEqual( isDestroyed(dest), true );
+
+			assert( spy.alwaysCalledWithExactly(destroy) );
+		}
+
+		// custom destroyables work too
+		{
+			let res;
+
+			const dest = new NullDestroyable();
+			assert.strictEqual( isDestroyed(dest), false );
+
+			res = destroy( dest );
+			assert.strictEqual( res, true );
+			assert.strictEqual( isDestroyed(dest), true );
+
+			res = destroy( dest );
+			assert.strictEqual( res, false );
+			assert.strictEqual( isDestroyed(dest), true );
 		}
 	});
 
@@ -128,16 +160,6 @@ describe( `@peoro/destroy`, function(){
 
 		unchainDestroy( dest, null );
 		assert.deepStrictEqual( dest[destructionChain], [chainDest2] );
-	});
-
-	it(`chainDestroyArr()`, function(){
-		const chainDest1 = new Destroyable(noop1);
-		const chainDest2 = new LightDestroyable(noop2);
-		const dest = new Destroyable();
-
-		const res = chainDestroyArr( dest, [chainDest1, chainDest2] );
-		assert.strictEqual( res, dest );
-		assert.deepStrictEqual( dest[destructionChain], [chainDest1, chainDest2] );
 	});
 
 	it(`destroyWith()`, function(){
@@ -225,18 +247,6 @@ describe( `@peoro/destroy`, function(){
 			destroy( chainDest1 );
 			assert.deepStrictEqual( dest[destructionChain], [chainDest2] );
 		});
-		it(`chainDestroyArr()`, function(){
-			const chainDest1 = new Destroyable(noop1);
-			const chainDest2 = new Destroyable(noop1);
-			const dest = new Destroyable();
-
-			const res = clean.chainDestroyArr( dest, [chainDest1, chainDest2] );
-			assert.strictEqual( res, dest );
-			assert.deepStrictEqual( dest[destructionChain], [chainDest1, chainDest2] );
-
-			destroy( chainDest1 );
-			assert.deepStrictEqual( dest[destructionChain], [chainDest2] );
-		});
 		it(`destroyWith()`, function(){
 			const chainDest1 = new Destroyable(noop1);
 			const chainDest2 = new Destroyable(noop1);
@@ -265,24 +275,6 @@ describe( `@peoro/destroy`, function(){
 
 			destroy( handle );
 			assert.deepStrictEqual( dest[destructionChain], [chainDest2] );
-		});
-		it(`chainDestroyArr()`, function(){
-			const chainDest1 = new Destroyable(noop1);
-			const chainDest2 = new Destroyable(noop2);
-			const chainDest3 = new Destroyable(noop3);
-			const dest = new Destroyable();
-
-			const handle = manualClean.chainDestroyArr( dest, [chainDest1, chainDest2] );
-			manualClean.chainDestroyArr( dest, [chainDest3] );
-
-			const destChain = dest[destructionChain];
-			assert.deepStrictEqual( destChain.length, 2 );
-			assert.deepStrictEqual( destChain[0][destructionChain], [chainDest1, chainDest2] );
-			assert.deepStrictEqual( destChain[1][destructionChain], [chainDest3] );
-
-			destroy( handle );
-			assert.deepStrictEqual( destChain.length, 1 );
-			assert.deepStrictEqual( destChain[0][destructionChain], [chainDest3] );
 		});
 		it(`destroyWith()`, function(){
 			const chainDest1 = new Destroyable(noop1);

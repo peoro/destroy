@@ -1,6 +1,7 @@
 
 'use strict';
 
+const destroyed = Symbol(`destroyed`);
 const destructor = Symbol(`destructor`);
 const destructionChain = Symbol(`destructionChain`);
 
@@ -44,10 +45,22 @@ function initDestroyable( obj ) {
 		configurable: true,
 		value: [],
 	});
+
+	assert( ! obj[destroyed], errFn`trying to re-init an object that was already destroyed: ${obj}` );
+	Object.defineProperty( obj, destroyed, {
+		configurable: true,
+		value: false
+	});
 }
 
+class NullDestroyable {
+	constructor() {
+		this[destroyed] = false;
+	}
+}
 class LightDestroyable {
 	constructor( fn=noop ) {
+		this[destroyed] = false;
 		this[destructor] = fn;
 	}
 }
@@ -59,10 +72,20 @@ class Destroyable {
 }
 
 function destroy( obj ) {
-	if( obj ) {
+	if( obj && obj.hasOwnProperty(destroyed) ) {
+		if( obj[destroyed] ) {
+			return false; // already destroyed
+		}
+
 		if( obj[destructor] ) {
 			obj[destructor]( destroy );
 		}
+
+		Object.defineProperty( obj, destroyed, {
+			configurable: true,
+			value: true,
+		});
+
 		if( obj[destructionChain] ) {
 			const chain = obj[destructionChain];
 			Object.defineProperty( obj, destructionChain, {
@@ -71,13 +94,17 @@ function destroy( obj ) {
 			});
 			chain.forEach( (link)=>destroy(link) );
 		}
+
+		return true;
 	}
+	return false;
 }
 
 function chainDestroy( obj, chainedObj ) {
 	assert( obj[destructionChain], errFn`${obj} used as a Destroyable, but it's not` );
 	assert( ! obj[destructionChain].includes( chainedObj ), errFn`Trying to destroy ${chainedObj} after ${obj} twice` );
 	obj[destructionChain].push( chainedObj );
+	assert( ! obj[destroyed], errFn`Tryng to chain ${chainedObj} to ${obj}, but it has already been destroyed ` );
 	return obj;
 }
 function unchainDestroy( obj, chainedObj ) {
@@ -86,9 +113,6 @@ function unchainDestroy( obj, chainedObj ) {
 	if( index !== -1 ) {
 		obj[destructionChain].splice( index, 1 );
 	}
-}
-function chainDestroyArr( obj, chainedObjs ) {
-	return chainedObjs.reduce( chainDestroy, obj );
 }
 function destroyWith( chainedObj, obj ) {
 	chainDestroy( obj, chainedObj );
@@ -104,12 +128,6 @@ const manualClean = {
 		chainDestroy( obj, chainedObj );
 		return new LightDestroyable( ()=>unchainDestroy(obj, chainedObj) );
 	},
-	chainDestroyArr( obj, chainedObjs ) {
-		const handle = new Destroyable();
-		chainedObjs.forEach( (obj)=>chainDestroy(handle, obj) );
-
-		return manualClean.chainDestroy( obj, handle );
-	},
 	destroyWith( chainedObj, obj ) {
 		return manualClean.chainDestroy( obj, chainedObj );
 	},
@@ -123,15 +141,16 @@ const clean = {
 		onDestroy( chainedObj, ()=>unchainDestroy(obj, chainedObj) );
 		return chainDestroy( obj, chainedObj );
 	},
-	chainDestroyArr( obj, chainedObjs ) {
-		return chainedObjs.reduce( clean.chainDestroy, obj );
-	},
 	destroyWith( chainedObj, obj ) {
 		clean.chainDestroy( obj, chainedObj );
 		return chainedObj;
 	},
 };
 
+
+function isDestroyed( obj ) {
+	return !! obj[destroyed];
+}
 function use( destroyable, fn ) {
 	try {
 		return fn( destroyable );
@@ -143,20 +162,22 @@ function use( destroyable, fn ) {
 
 
 module.exports = {
+	destroyed,
 	destructor,
 	destructionChain,
 
 	noop,
 	initDestroyable,
+	NullDestroyable,
 	LightDestroyable,
 	Destroyable,
 
 	destroy,
 	chainDestroy,
 	unchainDestroy,
-	chainDestroyArr,
 	destroyWith,
 	onDestroy,
+	isDestroyed,
 	use,
 
 	clean,
