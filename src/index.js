@@ -72,7 +72,7 @@ class Destroyable {
 }
 
 function destroy( obj ) {
-	if( obj && obj.hasOwnProperty(destroyed) ) {
+	if( obj && Object.prototype.hasOwnProperty.call(obj, destroyed) ) {
 		if( obj[destroyed] ) {
 			return false; // already destroyed
 		}
